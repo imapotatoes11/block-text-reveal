@@ -1,6 +1,6 @@
 {
   "name": "block-text-reveal",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "animated text reveal for react",
   "keywords": [
     "react",
@@ -13,6 +13,10 @@
     "animation"
   ],
   "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/imapotatoes11/block-text-reveal.git"
+  },
   "author": "imapotatoes11",
   "type": "module",
   "main": "./dist/index.cjs",
