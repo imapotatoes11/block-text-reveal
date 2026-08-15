@@ -20,7 +20,7 @@ export interface TextRevealProps
   extends Omit<HTMLAttributes<HTMLSpanElement>, "children"> {
   /** Text to reveal. `children` takes precedence when both are provided. */
   text?: string;
-  /** Text content to reveal. Plain text and numbers are supported. */
+  /** Text content to reveal. Nested JSX is preserved while its text is animated. */
   children?: ReactNode;
   /** How the text is split before each unit is revealed. */
   split?: TextRevealSplitMode;

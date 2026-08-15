@@ -61,6 +61,18 @@ The `text` prop is also supported when children are inconvenient:
 <TextReveal text="NEXT.JS + MOTION" split="char" />
 ```
 
+Nested JSX is also supported. The markup and its attributes are preserved while
+the text inside it is split and animated. A single root element, such as this
+heading, becomes the reveal container so its semantics remain intact:
+
+```tsx
+<TextReveal split="word">
+  <h1 className="text-5xl text-shadow-lg text-shadow-white/30">
+    (<span className="font-mono">404</span>)
+  </h1>
+</TextReveal>
+```
+
 ## Props
 
 | Prop             | Type                                                                       | Default                                    | Description                                                      |
@@ -102,4 +114,6 @@ The package intentionally does not require Tailwind. Use `className` or `style` 
 </TextReveal>
 ```
 
-Plain text is the supported content shape. Nested markup inside `children` is ignored rather than partially animated, which keeps the animation and accessibility tree predictable.
+Nested markup inside `children` is preserved. When there is one root element,
+it becomes the reveal container; otherwise, the content is rendered inside the
+component's normal outer span.

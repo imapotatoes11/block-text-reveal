@@ -4,9 +4,11 @@ import { motion } from "framer-motion";
 import {
   Children,
   Fragment,
+  cloneElement,
   isValidElement,
   useMemo,
   type CSSProperties,
+  type ReactElement,
   type ReactNode
 } from "react";
 
@@ -53,15 +55,20 @@ function textFromChildren(children: ReactNode): string {
         return String(child);
       }
 
-      // Fragments containing plain text are common enough to support without
-      // making the component pretend it can animate arbitrary nested markup.
-      if (isValidElement(child) && child.type === Fragment) {
+      if (isValidElement(child)) {
         return textFromChildren(child.props.children);
       }
 
       return "";
     })
     .join("");
+}
+
+function singleRootElement(children: ReactNode): ReactElement | undefined {
+  const childArray = Children.toArray(children);
+  const child = childArray.length === 1 ? childArray[0] : undefined;
+
+  return isValidElement(child) && child.type !== Fragment ? child : undefined;
 }
 
 function clampNonNegative(value: number): number {
@@ -192,9 +199,10 @@ function RevealUnit({
 }
 
 /**
- * Reveals plain text with a directional coloured wipe and a spring-based text
- * entrance. It is a client component internally, so it can be imported from a
- * Next.js App Router server component without adding `"use client"` there.
+ * Reveals text, including text inside nested JSX, with a directional coloured
+ * wipe and a spring-based text entrance. It is a client component internally,
+ * so it can be imported from a Next.js App Router server component without
+ * adding `"use client"` there.
  */
 export function TextReveal({
   text,
@@ -218,7 +226,6 @@ export function TextReveal({
 }: TextRevealProps) {
   const content =
     children !== undefined ? textFromChildren(children) : text ?? "";
-  const units = useMemo(() => splitText(content, split), [content, split]);
   const wipe = useMemo(() => getWipeConfig(direction), [direction]);
   const safeStagger = clampNonNegative(stagger);
   const safeDuration = clampNonNegative(duration);
@@ -233,6 +240,83 @@ export function TextReveal({
   const animationKey = replayKey ?? `${content}\u0000${split}\u0000${direction}`;
 
   let animatedUnitIndex = 0;
+  let textNodeIndex = 0;
+
+  const renderTextNode = (value: string): ReactNode => {
+    const textNodeKey = textNodeIndex++;
+
+    return splitText(value, split).map((unit, index) => {
+      const whitespace = isWhitespace(unit);
+      const delay =
+        whitespace || split === "full"
+          ? 0
+          : animatedUnitIndex++ * safeStagger;
+
+      return (
+        <RevealUnit
+          key={`${textNodeKey}-${index}-${unit}`}
+          value={unit}
+          delay={delay}
+          line={split === "line"}
+          wipe={wipe}
+          duration={safeDuration}
+          textOffset={safeTextOffset}
+          spring={resolvedSpring}
+          textColor={textColor}
+          blockColor={blockColor}
+          textClassName={textClassName}
+          blockClassName={blockClassName}
+          textStyle={textStyle}
+          blockStyle={blockStyle}
+        />
+      );
+    });
+  };
+
+  const renderChildren = (nestedChildren: ReactNode): ReactNode =>
+    Children.map(nestedChildren, (child) => {
+      if (typeof child === "string" || typeof child === "number") {
+        return renderTextNode(String(child));
+      }
+
+      if (!isValidElement(child)) {
+        return child;
+      }
+
+      if (child.type === Fragment) {
+        return (
+          <Fragment key={child.key}>{renderChildren(child.props.children)}</Fragment>
+        );
+      }
+
+      return cloneElement(child, {
+        children: renderChildren(child.props.children)
+      });
+    });
+
+  const rootElement =
+    children !== undefined ? singleRootElement(children) : undefined;
+  const renderedContent = renderChildren(
+    rootElement ? rootElement.props.children : children !== undefined ? children : text
+  );
+
+  if (rootElement) {
+    const rootClassName = [rootElement.props.className, className]
+      .filter(Boolean)
+      .join(" ");
+    const rootStyle =
+      rootElement.props.style || style
+        ? { ...rootElement.props.style, ...style }
+        : undefined;
+
+    return cloneElement(rootElement, {
+      ...rest,
+      key: animationKey,
+      className: rootClassName || undefined,
+      style: rootStyle,
+      children: renderedContent
+    });
+  }
 
   return (
     <span
@@ -245,29 +329,7 @@ export function TextReveal({
       }}
       {...rest}
     >
-      {units.map((unit, index) => {
-        const whitespace = isWhitespace(unit);
-        const delay = whitespace ? 0 : animatedUnitIndex++ * safeStagger;
-
-        return (
-          <RevealUnit
-            key={`${index}-${unit}`}
-            value={unit}
-            delay={delay}
-            line={split === "line"}
-            wipe={wipe}
-            duration={safeDuration}
-            textOffset={safeTextOffset}
-            spring={resolvedSpring}
-            textColor={textColor}
-            blockColor={blockColor}
-            textClassName={textClassName}
-            blockClassName={blockClassName}
-            textStyle={textStyle}
-            blockStyle={blockStyle}
-          />
-        );
-      })}
+      {renderedContent}
     </span>
   );
 }
